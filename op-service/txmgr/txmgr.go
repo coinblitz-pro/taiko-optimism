@@ -477,6 +477,13 @@ func (m *SimpleTxManager) publishTx(ctx context.Context, tx *types.Transaction, 
 			tx = newTx
 			sendState.bumpCount++
 			l = m.txLogger(tx, true)
+		} else {
+			if tx.Type() == types.BlobTxType {
+				if err := m.checkBlobFeeLimits(tx.BlobGasFeeCap()); err != nil {
+					l.Error("blob fee limit reached", "err", err)
+					return tx, false
+				}
+			}
 		}
 		bumpFeesImmediately = true // bump fees next loop
 
@@ -681,7 +688,7 @@ func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transa
 		if bumpedBlobFee.Cmp(blobBaseFee) < 0 {
 			bumpedBlobFee = blobBaseFee
 		}
-		if err := m.checkBlobFeeLimits(blobBaseFee, bumpedBlobFee); err != nil {
+		if err := m.checkBumpedBlobFeeFeeLimits(blobBaseFee, bumpedBlobFee); err != nil {
 			return nil, err
 		}
 		message := &types.BlobTx{
@@ -788,7 +795,7 @@ func (m *SimpleTxManager) checkLimits(tip, baseFee, bumpedTip, bumpedFee *big.In
 	return errs
 }
 
-func (m *SimpleTxManager) checkBlobFeeLimits(blobBaseFee, bumpedBlobFee *big.Int) error {
+func (m *SimpleTxManager) checkBumpedBlobFeeFeeLimits(blobBaseFee, bumpedBlobFee *big.Int) error {
 	// If below threshold, don't apply multiplier limit. Note we use same threshold parameter here
 	// used for non-blob fee limiting.
 	if thr := m.cfg.FeeLimitThreshold; thr != nil && thr.Cmp(bumpedBlobFee) == 1 {
@@ -801,6 +808,13 @@ func (m *SimpleTxManager) checkBlobFeeLimits(blobBaseFee, bumpedBlobFee *big.Int
 			bumpedBlobFee, m.cfg.FeeLimitMultiplier, ErrBlobFeeLimit)
 	}
 	return nil
+}
+
+func (m *SimpleTxManager) checkBlobFeeLimits(blobFee *big.Int) error {
+	if thr := m.cfg.FeeLimitThreshold; thr != nil && thr.Cmp(blobFee) == 1 {
+		return nil
+	}
+	return fmt.Errorf("blob fee %v is over of the suggested value: %w", blobFee, ErrBlobFeeLimit)
 }
 
 // IsClosed returns true if the tx manager is closed.
