@@ -477,6 +477,13 @@ func (m *SimpleTxManager) publishTx(ctx context.Context, tx *types.Transaction, 
 			tx = newTx
 			sendState.bumpCount++
 			l = m.txLogger(tx, true)
+		} else {
+			if tx.Type() == types.BlobTxType {
+				if err := m.checkBlobFeeLimits(tx.BlobGasFeeCap(), tx.BlobGasFeeCap()); err != nil {
+					l.Error("blob fee limit reached", "err", err)
+					return tx, false
+				}
+			}
 		}
 		bumpFeesImmediately = true // bump fees next loop
 
