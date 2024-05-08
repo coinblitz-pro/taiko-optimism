@@ -477,14 +477,18 @@ func (m *SimpleTxManager) publishTx(ctx context.Context, tx *types.Transaction, 
 			tx = newTx
 			sendState.bumpCount++
 			l = m.txLogger(tx, true)
-		} else {
-			if tx.Type() == types.BlobTxType {
-				if err := m.checkBlobFeeLimits(tx.BlobGasFeeCap(), tx.BlobGasFeeCap()); err != nil {
-					l.Error("blob fee limit reached", "err", err)
-					return tx, false
-				}
-			}
 		}
+
+		if tx.Type() == types.BlobTxType && m.cfg.MaxBlobGasFeeCap.Cmp(tx.BlobGasFeeCap()) < 0 {
+			l.Warn("Blob fee cap exceeds limit", "limit", m.cfg.MaxBlobGasFeeCap.Uint64())
+			return tx, false
+		}
+
+		if m.cfg.MaxCallGasFeeCap.Cmp(tx.GasFeeCap()) < 0 {
+			l.Warn("Call fee cap exceeds limit", "limit", m.cfg.MaxCallGasFeeCap.Uint64())
+			return tx, false
+		}
+
 		bumpFeesImmediately = true // bump fees next loop
 
 		if sendState.IsWaitingForConfirmation() {
@@ -767,6 +771,21 @@ func (m *SimpleTxManager) suggestGasPriceCaps(ctx context.Context) (*big.Int, *b
 		blobFee = eip4844.CalcBlobFee(*head.ExcessBlobGas)
 		m.metr.RecordBlobBaseFee(blobFee)
 	}
+
+	if m.cfg.AdvantageFeeBump > 0 {
+		m.l.Info("Applying advantage fee bump", "advantageFeeBump", m.cfg.AdvantageFeeBump)
+
+		multiplier := new(big.Int).SetUint64(m.cfg.AdvantageFeeBump + 100)
+		divider := new(big.Int).SetUint64(100)
+
+		tip = new(big.Int).Div(new(big.Int).Mul(tip, multiplier), divider)
+		baseFee = new(big.Int).Div(new(big.Int).Mul(baseFee, multiplier), divider)
+
+		if blobFee != nil {
+			blobFee = new(big.Int).Div(new(big.Int).Mul(blobFee, multiplier), divider)
+		}
+	}
+
 	return tip, baseFee, blobFee, nil
 }
 
@@ -798,7 +817,7 @@ func (m *SimpleTxManager) checkLimits(tip, baseFee, bumpedTip, bumpedFee *big.In
 func (m *SimpleTxManager) checkBlobFeeLimits(blobBaseFee, bumpedBlobFee *big.Int) error {
 	// If below threshold, don't apply multiplier limit. Note we use same threshold parameter here
 	// used for non-blob fee limiting.
-	if thr := m.cfg.FeeLimitThreshold; thr != nil && thr.Cmp(bumpedBlobFee) == 1 {
+	if thr := m.cfg.FeeLimitThreshold; thr != nil && thr.Cmp(bumpedBlobFee) > 0 {
 		return nil
 	}
 	maxBlobFee := new(big.Int).Mul(calcBlobFeeCap(blobBaseFee), big.NewInt(int64(m.cfg.FeeLimitMultiplier)))

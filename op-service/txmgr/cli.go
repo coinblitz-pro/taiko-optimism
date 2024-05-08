@@ -208,6 +208,9 @@ type CLIConfig struct {
 	NetworkTimeout            time.Duration
 	TxSendTimeout             time.Duration
 	TxNotInMempoolTimeout     time.Duration
+	AdvantageFeeBump          uint64
+	MaxBlobGasFeeCapGwei      float64
+	MaxCallGasFeeCapGwei      float64
 }
 
 func NewCLIConfig(l1RPCURL string, defaults DefaultFlagValues) CLIConfig {
@@ -330,6 +333,16 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 		return Config{}, fmt.Errorf("invalid min tip cap: %w", err)
 	}
 
+	maxBlobGasFeeCap, err := eth.GweiToWei(cfg.MaxBlobGasFeeCapGwei)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid min base fee: %w", err)
+	}
+
+	maxCallGasFeeCap, err := eth.GweiToWei(cfg.MaxCallGasFeeCapGwei)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid min base fee: %w", err)
+	}
+
 	return Config{
 		Backend:                   l1,
 		ResubmissionTimeout:       cfg.ResubmissionTimeout,
@@ -344,6 +357,9 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 		ReceiptQueryInterval:      cfg.ReceiptQueryInterval,
 		NumConfirmations:          cfg.NumConfirmations,
 		SafeAbortNonceTooLowCount: cfg.SafeAbortNonceTooLowCount,
+		AdvantageFeeBump:          cfg.AdvantageFeeBump,
+		MaxBlobGasFeeCap:          maxBlobGasFeeCap,
+		MaxCallGasFeeCap:          maxCallGasFeeCap,
 		Signer:                    signerFactory(chainID),
 		From:                      from,
 	}, nil
@@ -400,6 +416,15 @@ type Config struct {
 	// are required to give up on a tx at a particular nonce without receiving
 	// confirmation.
 	SafeAbortNonceTooLowCount uint64
+
+	// AdvantageFeeBump is the percetance to bump the gas price
+	AdvantageFeeBump uint64
+
+	// MaxBlobGasFeeCap is maximum blob gas fee cap per blob gas
+	MaxBlobGasFeeCap *big.Int
+
+	// MaxCallGasPrice is maximum gas price that can be used for a call
+	MaxCallGasFeeCap *big.Int
 
 	// Signer is used to sign transactions when the gas price is increased.
 	Signer opcrypto.SignerFn
