@@ -351,19 +351,15 @@ func (m *SimpleTxManager) signWithNextNonce(ctx context.Context, txMessage types
 	m.nonceLock.Lock()
 	defer m.nonceLock.Unlock()
 
-	if m.nonce == nil {
-		// Fetch the sender's nonce from the latest known block (nil `blockNumber`)
-		childCtx, cancel := context.WithTimeout(ctx, m.cfg.NetworkTimeout)
-		defer cancel()
-		nonce, err := m.backend.NonceAt(childCtx, m.cfg.From, nil)
-		if err != nil {
-			m.metr.RPCError()
-			return nil, fmt.Errorf("failed to get nonce: %w", err)
-		}
-		m.nonce = &nonce
-	} else {
-		*m.nonce++
+	// Fetch the sender's nonce from the latest known block (nil `blockNumber`)
+	nonceAtCtx, nonceAtCtxCancel := context.WithTimeout(ctx, m.cfg.NetworkTimeout)
+	defer nonceAtCtxCancel()
+	nonce, err := m.backend.NonceAt(nonceAtCtx, m.cfg.From, nil)
+	if err != nil {
+		m.metr.RPCError()
+		return nil, fmt.Errorf("failed to get nonce: %w", err)
 	}
+	m.nonce = &nonce
 
 	switch x := txMessage.(type) {
 	case *types.DynamicFeeTx:
@@ -373,14 +369,11 @@ func (m *SimpleTxManager) signWithNextNonce(ctx context.Context, txMessage types
 	default:
 		return nil, fmt.Errorf("unrecognized tx type: %T", x)
 	}
-	ctx, cancel := context.WithTimeout(ctx, m.cfg.NetworkTimeout)
-	defer cancel()
-	tx, err := m.cfg.Signer(ctx, m.cfg.From, types.NewTx(txMessage))
-	if err != nil {
-		// decrement the nonce, so we can retry signing with the same nonce next time
-		// signWithNextNonce is called
-		*m.nonce--
-	} else {
+
+	signerCtx, signerCtxCancel := context.WithTimeout(ctx, m.cfg.NetworkTimeout)
+	defer signerCtxCancel()
+	tx, err := m.cfg.Signer(signerCtx, m.cfg.From, types.NewTx(txMessage))
+	if err == nil {
 		m.metr.RecordNonce(*m.nonce)
 	}
 	return tx, err
