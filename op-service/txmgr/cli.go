@@ -209,6 +209,7 @@ type CLIConfig struct {
 	TxSendTimeout             time.Duration
 	TxNotInMempoolTimeout     time.Duration
 	AdvantageFeeBump          uint64
+	AdvantageGasBump          uint64
 	MaxBlobGasFeeCapGwei      float64
 	MaxCallGasFeeCapGwei      float64
 }
@@ -358,6 +359,7 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 		NumConfirmations:          cfg.NumConfirmations,
 		SafeAbortNonceTooLowCount: cfg.SafeAbortNonceTooLowCount,
 		AdvantageFeeBump:          cfg.AdvantageFeeBump,
+		AdvantageGasBump:          cfg.AdvantageGasBump,
 		MaxBlobGasFeeCap:          maxBlobGasFeeCap,
 		MaxCallGasFeeCap:          maxCallGasFeeCap,
 		Signer:                    signerFactory(chainID),
@@ -417,8 +419,11 @@ type Config struct {
 	// confirmation.
 	SafeAbortNonceTooLowCount uint64
 
-	// AdvantageFeeBump is the percetance to bump the gas price
+	// AdvantageFeeBump is the percentage to bump the gas price
 	AdvantageFeeBump uint64
+
+	// AdvantageGasBump is the percentage to bump the gas limit
+	AdvantageGasBump uint64
 
 	// MaxBlobGasFeeCap is maximum blob gas fee cap per blob gas
 	MaxBlobGasFeeCap *big.Int

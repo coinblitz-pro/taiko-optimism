@@ -274,7 +274,8 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 		if err != nil {
 			return nil, fmt.Errorf("failed to estimate gas: %w", err)
 		}
-		gasLimit = gas
+		m.l.Info("Applying advantage gas limit bump", "advantageGasBump", m.cfg.AdvantageGasBump)
+		gasLimit = gas * (100 + m.cfg.AdvantageGasBump) / 100
 	}
 
 	var sidecar *types.BlobTxSidecar
@@ -675,6 +676,9 @@ func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transa
 		// approach as of v1.13.6.
 		m.l.Debug("re-estimated gas differs", "tx", tx.Hash(), "oldgas", tx.Gas(), "newgas", gas,
 			"gasFeeCap", bumpedFee, "gasTipCap", bumpedTip)
+
+		m.l.Info("Applying advantage gas limit bump", "advantageGasBump", m.cfg.AdvantageGasBump)
+		gas = gas * (100 + m.cfg.AdvantageGasBump) / 100
 	}
 
 	var newTx *types.Transaction
