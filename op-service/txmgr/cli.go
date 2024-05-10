@@ -212,6 +212,7 @@ type CLIConfig struct {
 	AdvantageGasBump          uint64
 	MaxBlobGasFeeCapGwei      float64
 	MaxCallGasFeeCapGwei      float64
+	MaxCraftTxAttempts        int
 }
 
 func NewCLIConfig(l1RPCURL string, defaults DefaultFlagValues) CLIConfig {
@@ -362,6 +363,7 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 		AdvantageGasBump:          cfg.AdvantageGasBump,
 		MaxBlobGasFeeCap:          maxBlobGasFeeCap,
 		MaxCallGasFeeCap:          maxCallGasFeeCap,
+		MaxCraftTxAttempts:        cfg.MaxCraftTxAttempts,
 		Signer:                    signerFactory(chainID),
 		From:                      from,
 	}, nil
@@ -430,6 +432,9 @@ type Config struct {
 
 	// MaxCallGasPrice is maximum gas price that can be used for a call
 	MaxCallGasFeeCap *big.Int
+
+	// MaxCraftTxAttempts is the maximum number of attempts to craft a tx
+	MaxCraftTxAttempts int
 
 	// Signer is used to sign transactions when the gas price is increased.
 	Signer opcrypto.SignerFn

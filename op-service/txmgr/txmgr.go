@@ -228,7 +228,13 @@ func (m *SimpleTxManager) send(ctx context.Context, candidate TxCandidate) (*typ
 		ctx, cancel = context.WithTimeout(ctx, m.cfg.TxSendTimeout)
 		defer cancel()
 	}
-	tx, err := retry.Do(ctx, 30, retry.Fixed(2*time.Second), func() (*types.Transaction, error) {
+
+	craftAttempts := 30
+	if m.cfg.MaxCraftTxAttempts > 0 {
+		craftAttempts = m.cfg.MaxCraftTxAttempts
+	}
+
+	tx, err := retry.Do(ctx, craftAttempts, retry.Fixed(2*time.Second), func() (*types.Transaction, error) {
 		if m.closed.Load() {
 			return nil, ErrClosed
 		}
@@ -241,6 +247,7 @@ func (m *SimpleTxManager) send(ctx context.Context, candidate TxCandidate) (*typ
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the tx: %w", err)
 	}
+
 	return m.sendTx(ctx, tx)
 }
 
