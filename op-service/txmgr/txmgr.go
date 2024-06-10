@@ -264,6 +264,7 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 		m.metr.RPCError()
 		return nil, fmt.Errorf("failed to get gas price info: %w", err)
 	}
+	m.l.Info("Gas price info", "gasTipCap", gasTipCap, "baseFee", baseFee, "blobBaseFee", blobBaseFee)
 	gasFeeCap := calcGasFeeCap(baseFee, gasTipCap)
 
 	gasLimit := candidate.GasLimit
