@@ -496,12 +496,12 @@ func (m *SimpleTxManager) publishTx(ctx context.Context, tx *types.Transaction, 
 		}
 
 		if tx.Type() == types.BlobTxType && m.cfg.MaxBlobGasFeeCap.Cmp(tx.BlobGasFeeCap()) < 0 {
-			l.Warn("Blob fee cap exceeds limit", "limit", m.cfg.MaxBlobGasFeeCap.Uint64())
+			l.Warn("Blob fee cap exceeds limit", "blobFeeCapLimit", m.cfg.MaxBlobGasFeeCap.Uint64())
 			return tx, false
 		}
 
 		if m.cfg.MaxCallGasFeeCap.Cmp(tx.GasFeeCap()) < 0 {
-			l.Warn("Call fee cap exceeds limit", "limit", m.cfg.MaxCallGasFeeCap.Uint64())
+			l.Warn("Call fee cap exceeds limit", "feeCapLimit", m.cfg.MaxCallGasFeeCap.Uint64())
 			return tx, false
 		}
 
