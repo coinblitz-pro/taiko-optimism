@@ -502,7 +502,7 @@ func (m *SimpleTxManager) publishTx(ctx context.Context, tx *types.Transaction, 
 		}
 
 		if m.cfg.MaxCallGasFeeCap.Cmp(tx.GasFeeCap()) < 0 {
-			l.Warn("Call fee cap exceeds limit", "feeCapLimit", m.cfg.MaxCallGasFeeCap.Uint64())
+			l.Warn("Call fee cap exceeds limit", "gasFeeCapLimit", m.cfg.MaxCallGasFeeCap.Uint64())
 			return tx, false
 		}
 
