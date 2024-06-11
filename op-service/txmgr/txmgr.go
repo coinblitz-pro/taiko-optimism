@@ -713,6 +713,11 @@ func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transa
 		gas = gas * (100 + m.cfg.AdvantageGasBump) / 100
 	}
 
+	// CHANGE(taiko): If the gas estimate is lower than the original gas, we should use the original gas.
+	if gas < tx.Gas() {
+		gas = tx.Gas()
+	}
+
 	var newTx *types.Transaction
 	if tx.Type() == types.BlobTxType {
 		// Blob transactions have an additional blob gas price we must specify, so we must make sure it is
