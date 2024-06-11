@@ -37,13 +37,13 @@ const (
 var (
 	priceBumpPercent     = big.NewInt(100 + priceBump)
 	blobPriceBumpPercent = big.NewInt(100 + blobPriceBump)
+	feeCapMultiplier     = big.NewInt(200)
 
 	// geth enforces a 1 gwei minimum for blob tx fee
 	minBlobTxFee = big.NewInt(params.GWei)
 
 	oneHundred = big.NewInt(100)
 	ninetyNine = big.NewInt(99)
-	two        = big.NewInt(2)
 
 	ErrBlobFeeLimit = errors.New("blob fee limit reached")
 	ErrClosed       = errors.New("transaction manager is closed")
@@ -144,6 +144,9 @@ func NewSimpleTxManagerFromConfig(name string, l log.Logger, m metrics.TxMetrice
 	if err := conf.Check(); err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
+
+	feeCapMultiplier = new(big.Int).SetUint64(conf.FeeCapMultiplier + 100)
+
 	return &SimpleTxManager{
 		chainID: conf.ChainID,
 		name:    name,
@@ -802,13 +805,12 @@ func (m *SimpleTxManager) suggestGasPriceCaps(ctx context.Context) (*big.Int, *b
 		m.l.Info("Applying advantage fee bump", "advantageFeeBump", m.cfg.AdvantageFeeBump)
 
 		multiplier := new(big.Int).SetUint64(m.cfg.AdvantageFeeBump + 100)
-		divider := new(big.Int).SetUint64(100)
 
-		tip = new(big.Int).Div(new(big.Int).Mul(tip, multiplier), divider)
-		baseFee = new(big.Int).Div(new(big.Int).Mul(baseFee, multiplier), divider)
+		tip = new(big.Int).Div(new(big.Int).Mul(tip, multiplier), oneHundred)
+		baseFee = new(big.Int).Div(new(big.Int).Mul(baseFee, multiplier), oneHundred)
 
 		if blobFee != nil {
-			blobFee = new(big.Int).Div(new(big.Int).Mul(blobFee, multiplier), divider)
+			blobFee = new(big.Int).Div(new(big.Int).Mul(blobFee, multiplier), oneHundred)
 		}
 	}
 
@@ -911,20 +913,18 @@ func updateFees(oldTip, oldFeeCap, newTip, newBaseFee *big.Int, isBlobTx bool, l
 //
 //	gasTipCap + 2*baseFee.
 func calcGasFeeCap(baseFee, gasTipCap *big.Int) *big.Int {
-	return new(big.Int).Add(
-		gasTipCap,
-		new(big.Int).Mul(baseFee, two),
-	)
+	baseCap := new(big.Int).Div(new(big.Int).Mul(baseFee, feeCapMultiplier), oneHundred)
+	return new(big.Int).Add(gasTipCap, baseCap)
 }
 
 // calcBlobFeeCap computes a suggested blob fee cap that is twice the current header's blob base fee
 // value, with a minimum value of minBlobTxFee.
 func calcBlobFeeCap(blobBaseFee *big.Int) *big.Int {
-	cap := new(big.Int).Mul(blobBaseFee, two)
-	if cap.Cmp(minBlobTxFee) < 0 {
-		cap.Set(minBlobTxFee)
+	baseCap := new(big.Int).Div(new(big.Int).Mul(blobBaseFee, feeCapMultiplier), oneHundred)
+	if baseCap.Cmp(minBlobTxFee) < 0 {
+		baseCap.Set(minBlobTxFee)
 	}
-	return cap
+	return baseCap
 }
 
 // errStringMatch returns true if err.Error() is a substring in target.Error() or if both are nil.
